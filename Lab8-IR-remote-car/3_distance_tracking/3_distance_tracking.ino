@@ -1,27 +1,18 @@
 #include <IRremote.hpp> // include the library
 #include <MPU9255.h>
+#include <LiquidCrystal_I2C.h>
+#include <debug_print.h>
+
+#define TO_METERS_PER_SEC ((1 << 14) / 9.81)
 
 #define IR_RECEIVE_PIN 3
-
 #define L_DIR 2
 #define L_EN 5
 #define R_DIR 4
 #define R_EN 6
 
 MPU9255 mpu;
-
-void setup() {
-  pinMode(L_DIR, OUTPUT);
-  pinMode(L_EN, OUTPUT);
-  pinMode(R_DIR, OUTPUT);
-  pinMode(R_EN, OUTPUT);
-
-
-  Serial.begin(115200);
-  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
-  mpu.init();
-  mpu.set_acc_scale(scale_2g);
-}
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 char remoteDecoder(long int raw_ir_data) {
   char command = '\0';
@@ -48,52 +39,14 @@ char remoteDecoder(long int raw_ir_data) {
   return command;
 }
 
-void forward(int speed){
-  digitalWrite(L_DIR, HIGH);
-  analogWrite(L_EN,speed);
-  digitalWrite(R_DIR, LOW);
-  analogWrite(R_EN,speed);
-}
-
-
-void backwards(int speed){
-  digitalWrite(L_DIR, LOW);
-  analogWrite(L_EN,speed);
-  digitalWrite(R_DIR, HIGH);
-  analogWrite(R_EN,speed);
-}
-
-
-void stop(){
-  analogWrite(L_EN,0);
-  analogWrite(R_EN,0);
-}
-
-
-void left(int speed) {
-  digitalWrite(L_DIR, LOW);
-  analogWrite(L_EN,speed);
-  digitalWrite(R_DIR, LOW);
-  analogWrite(R_EN,speed);
-}
-
-
-void right(int speed){ 
-  digitalWrite(L_DIR, HIGH); 
-  analogWrite(L_EN,speed); 
-  digitalWrite(R_DIR, HIGH); 
-  analogWrite(R_EN,speed); 
-}
-
-
-void controlMotor(char command, int speed){ 
+void controlMotor(char command, int speed) { 
   // call the appropriate motor control function based on what command is recieved 
   switch(command){ 
     case 'F': 
       forward(speed); 
       break; 
     case 'B': 
-      backwards(speed); 
+      backward(speed); 
       break; 
     case 'O': 
       stop(); 
@@ -104,28 +57,51 @@ void controlMotor(char command, int speed){
     case 'R': 
       right(speed); 
       break; 
-  } 
-
+  }
 } 
 
+
+void setup() {
+  pinMode(L_DIR, OUTPUT);
+  pinMode(L_EN, OUTPUT);
+  pinMode(R_DIR, OUTPUT);
+  pinMode(R_EN, OUTPUT);
+
+  Serial.begin(115200);
+  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
+  mpu.init();
+  mpu.set_acc_scale(scale_2g);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Hello World!");
+}
 
 
 void loop() {
   static long long current_time = micros();
   static long long prev_time = current_time;
   static long long elapsed_time = current_time - prev_time;
+  static char line_buffer[17];
+  static char float_buffer[12];
 
   prev_time = current_time;
   current_time = micros();
   elapsed_time = current_time - prev_time;
 
   mpu.read_acc();
-  float ax = mpu.ax;
-  float ay = mpu.ay;
+  double ax = double(mpu.ax) / TO_METERS_PER_SEC;
+  double ay = double(mpu.ay) / TO_METERS_PER_SEC;
+  double az = double(mpu.az) / TO_METERS_PER_SEC;
+  PRINT_VAR(ax);
+  PRINT_VAR(ay);
+  PRINT_VAR(az);
+  Serial.println();
 
-
-
-
+  sprintf(line_buffer, "a:%s y:%s", dtostrf(ax, 1, 1, float_buffer), dtostrf(ay, 1, 1, float_buffer));
+  lcd.setCursor(0, 0);
+  lcd.printstr(line_buffer);
 
   if (IrReceiver.decode()) {
     long int raw_ir_data = IrReceiver.decodedIRData.decodedRawData;
