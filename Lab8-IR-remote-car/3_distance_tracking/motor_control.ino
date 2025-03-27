@@ -36,3 +36,24 @@ void stop() {
   digitalWrite(L_EN,LOW);
   digitalWrite(R_EN,LOW);
 }
+
+void controlMotor(char command, int speed) { 
+  // call the appropriate motor control function based on what command is recieved 
+  switch(command){ 
+    case 'F': 
+      forward(speed); 
+      break; 
+    case 'B': 
+      backward(speed); 
+      break; 
+    case 'O': 
+      stop(); 
+      break; 
+    case 'L': 
+      left(speed); 
+      break; 
+    case 'R': 
+      right(speed); 
+      break; 
+  }
+} 
